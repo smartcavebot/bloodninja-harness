@@ -43,7 +43,7 @@ python role_queue.py
 ## GitHub Actions
 
 - **CI**: runs offline tests on push/PR; performs no billed LLM calls.
-- **Finance-Agent experiment**: `Actions > Finance-Agent experiment (manual billed runs) > Run workflow`. Choose one of S, M, Q, or `all`; defaults to **single-agent on just one task**. Requires `OPENAI_API_KEY` and `TAVILY_API_KEY` GitHub Actions secrets. A full 50-task comparison consumes API credits and requires explicit selection. The workflow uploads only aggregate metric JSON files; it does not upload raw model transcripts or queue databases. Parallel runner instance count fixed at 1. All arms use the same model ID and task cutoff.
+- **Finance-Agent experiment**: `Actions > Finance-Agent experiment (manual billed runs) > Run workflow`. Choose one of S, M, Q, or `all`; defaults to **single-agent on just one task**. Requires `OPENAI_API_KEY` and `TAVILY_API_KEY` GitHub Actions secrets. A full 50-task comparison consumes API credits and requires explicit selection. The workflow uploads aggregate and **paired task-level accuracy metrics**, optionally with bootstrap estimates when all three arms finish. It does not upload raw model transcripts or queue databases. Parallel runner instance count fixed at 1. All arms use the same model ID and task cutoff.
 
 ### What the integration changes
 

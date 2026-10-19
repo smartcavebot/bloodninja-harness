@@ -120,11 +120,30 @@ jobs:
               cp "$p" "$dest"
             done
           echo "Files collected: $(find metrics -name '*.json' | wc -l)"
-      - name: Upload aggregate metrics
+      - name: Export paired task-level scores (no prompts or answers)
+        if: always()
+        shell: bash
+        run: |
+          if [[ -d upstream/agent-scaling/.venv ]]; then
+            cd upstream/agent-scaling
+            uv run --no-sync python ../../bloodninja/export_metrics.py \
+              --root exp_outputs --out ../../metrics/paired-task-metrics.csv
+            cd ../..
+            if [[ "${{ inputs.arm }}" == "all" ]] && \
+                [[ -s metrics/paired-task-metrics.csv ]]; then
+              python analyze.py metrics/paired-task-metrics.csv --reps 4000 \
+                > metrics/paired-bootstrap.txt || \
+                echo "Paired scores unavailable: at least one architecture incomplete" \
+                  > metrics/paired-bootstrap.txt
+            fi
+          else
+            echo "No installed experiment environment; no scores to extract"
+          fi
+      - name: Upload de-identified experiment metrics
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: finance-agent-experiment-metrics
-          path: metrics/*.json
+          path: metrics/*
           if-no-files-found: warn
           retention-days: 30

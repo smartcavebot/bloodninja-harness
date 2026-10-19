@@ -26,6 +26,8 @@ jobs:
         shell: bash
         run: |
           test "$(git -C upstream/agent-scaling rev-parse HEAD)" = "8673d6a8d5a764a07b08e4283492380d80257223"
+      - name: Install lightweight YAML parser for score export tests
+        run: python -m pip install "PyYAML>=6,<7"
       - name: Compile queued adapter (no upstream import)
         run: python -m compileall -q bloodninja
       - name: Run deterministic tests (no model/API requests)
