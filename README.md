@@ -40,6 +40,18 @@ python -m unittest discover -s tests -v
 python role_queue.py
 ```
 
+
+## Zero-API-cost trial (Groq + Tavily)
+
+The manual [free-tier trial](.github/workflows/free-trial.yml) is designed for $0 API fees using **Groq's free-plan token quota** for `groq/openai/gpt-oss-20b` (or 120B) and **Tavily's free search quota**. Standard GitHub-hosted Actions runners are free for this public repository. No Hugging Face account, paid GPU, or OpenAI/Gemini key is required for this workflow.
+
+1. Obtain a free Groq API key at https://console.groq.com/keys and Tavily API key at https://app.tavily.com/.
+2. Add GitHub Actions repository secrets `GROQ_API_KEY` and `TAVILY_API_KEY` under **Settings → Secrets and variables → Actions**.
+3. In **Actions → Finance-Agent free-tier trial (manual)**, run **single / 1 task** first. Then test **multi / 1** and **queue / 1** on the same selected task, or use **all / 1** after a successful smoke test.
+4. Compare sanitized metrics from workflow artifacts. Repeating across more tasks may require multiple days because the free Groq tier imposes daily token limits; never interpret a quota/error score as model quality.
+
+**Methodological caveats:** This is a new-model validation of S/M/Q, not an exact reproduction of the paper's published-model scores. For zero charge, the free workflow explicitly overrides the pinned Finance-Agent **rubric judge** to the selected Groq model (the original template defaults to a separate Gemini judge); this changes the evaluator model, but is held constant across S/M/Q. A one-task smoke test demonstrates that the pipeline executes; it cannot establish statistical superiority. Live runs have not been verified with keys. Do not use `baseline.yml` to attempt a free run; that workflow is configured for OpenAI models and the original Gemini grader.
+
 ## GitHub Actions
 
 - **CI**: runs offline tests on push/PR; performs no billed LLM calls.
