@@ -1,0 +1,3 @@
+[submodule "upstream/agent-scaling"]
+	path = upstream/agent-scaling
+	url = https://github.com/ybkim95/agent-scaling.git
