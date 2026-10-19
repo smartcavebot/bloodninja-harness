@@ -68,9 +68,18 @@ jobs:
       - name: Install upstream environment
         working-directory: upstream/agent-scaling
         run: uv sync --prerelease=allow
-      - name: Fetch and normalize Finance-Agent tasks
+      - name: Checkout immutable Finance-Agent public dataset source
+        uses: actions/checkout@v4
+        with:
+          repository: vals-ai/finance-agent
+          ref: 8ba65f81ab759a8e0d44e72aabc5a47cf839d563
+          path: upstream/agent-scaling/third_party/finance-agent
+          persist-credentials: false
+      - name: Normalize pinned Finance-Agent public tasks
         working-directory: upstream/agent-scaling
-        run: bash scripts/setup_finance_agent.sh
+        run: |
+          test "$(git -C third_party/finance-agent rev-parse HEAD)" = '8ba65f81ab759a8e0d44e72aabc5a47cf839d563'
+          bash scripts/setup_finance_agent.sh
       - name: Verify Q integration is loadable
         working-directory: upstream/agent-scaling
         run: |

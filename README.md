@@ -4,7 +4,7 @@ Experimental agent harness testing whether a **single LLM executing isolated rol
 
 ## Status
 
-- The role-private SQLite transport demonstrator and paired bootstrap statistics are implemented and covered by five passing deterministic unit tests.
+- The role-private SQLite transport demonstrator and paired bootstrap statistics are implemented and covered by offline deterministic unit tests.
 - Upstream `ybkim95/agent-scaling` is tracked as an actual Git submodule at **v2.2.3 / `8673d6a8d5a764a07b08e4283492380d80257223`**.
 - Actions CI executes the offline transport tests. `baseline.yml` can manually reproduce the *published single-agent and centralized multi-agent controls* on a selected sample of Finance-Agent tasks, with user-supplied API secrets. **Q is now integrated as an additional upstream architecture** (`single-worker-queued`) through a launch-time registration adapter. The local `role_queue.py` remains a fake deterministic model and is not a scientific scoring result.
 
@@ -26,7 +26,7 @@ Primary statistic: `R=(Q-S)/(M-S)`, defined only for a positive replicated advan
 ## Obtain the upstream submodule
 
 ```bash
-git clone --recurse-submodules YOUR_GITHUB_REPO_URL
+git clone --recurse-submodules https://github.com/smartcavebot/bloodninja-harness.git
 # or, on an existing clone:
 git submodule update --init --recursive
 git -C upstream/agent-scaling rev-parse HEAD

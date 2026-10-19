@@ -53,3 +53,7 @@ Implemented and verified locally: SQLite FIFO transport idempotence; same determ
 ## Paired metrics artifact
 
 `bloodninja/export_metrics.py` reads upstream `instance_runs/*/instance_save.yaml` plus matching `run_config.yaml` and extracts only `task_id`, arm, binary `is_correct` (primary published accuracy), optional rubric score, grading method and experiment path. It deliberately excludes raw questions, references, answers, trajectories, and model responses. The GitHub Actions manual experiment exports `paired-task-metrics.csv`, along with aggregate metrics. If all S/M/Q arms finish, it also emits `paired-bootstrap.txt`. This is only a valid comparison after checking task_id intersection, identical grader/model/settings, and the run's per-arm failure count.
+
+## Data input pin
+
+The benchmark workflow checks out the public Vals Finance-Agent repository at exactly `8ba65f81ab759a8e0d44e72aabc5a47cf839d563` (2026-07-21), then passes that directory to the unchanged upstream normalization script. Do not let the setup script silently fetch current `main`, or historical comparisons become non-repeatable. Web search and grader-model behavior still require additional snapshot controls; pinning the task CSV does not solve those sources of drift.
