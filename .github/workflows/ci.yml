@@ -26,7 +26,42 @@ jobs:
         shell: bash
         run: |
           test "$(git -C upstream/agent-scaling rev-parse HEAD)" = "8673d6a8d5a764a07b08e4283492380d80257223"
+      - name: Compile queued adapter (no upstream import)
+        run: python -m compileall -q bloodninja
       - name: Run deterministic tests (no model/API requests)
         run: python -m unittest discover -s tests -v
       - name: Run role dispatch smoke
         run: python role_queue.py
+  upstream-compat:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout pinned upstream
+        uses: actions/checkout@v4
+        with:
+          submodules: true
+          persist-credentials: false
+      - name: Install Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install uv
+        uses: astral-sh/setup-uv@v6
+      - name: Install upstream dependencies (no API calls)
+        working-directory: upstream/agent-scaling
+        run: uv sync --prerelease=allow
+      - name: Load Q adapter and verify original runner compatibility
+        working-directory: upstream/agent-scaling
+        run: |
+          uv run --no-sync python - <<'PYCODE'
+          import pathlib, sys
+          sys.path.insert(0, str(pathlib.Path.cwd().parents[1]))
+          from bloodninja.adapter import register_queued_agent
+          register_queued_agent()
+          from agent_scaling.agents.registry import get_agent_cls
+          from agent_scaling.config.run import RunConfig
+          cls = get_agent_cls('single-worker-queued')
+          assert cls.__name__ == 'SingleWorkerQueued'
+          assert hasattr(cls, 'run_agent_async')
+          print('Q architecture successfully loaded into upstream registry')
+          PYCODE

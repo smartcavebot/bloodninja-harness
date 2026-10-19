@@ -1,4 +1,4 @@
-name: Finance-Agent baselines
+name: Finance-Agent experiment (manual billed runs)
 on:
   workflow_dispatch:
     inputs:
@@ -10,6 +10,16 @@ on:
           - openai/gpt-5-nano
           - openai/gpt-5
         default: openai/gpt-5-mini
+        required: true
+      arm:
+        description: "Architecture (all = S, M, Q; may incur substantial API charges)"
+        type: choice
+        options:
+          - single
+          - multi
+          - queue
+          - all
+        default: single
         required: true
       max_instances:
         description: "Tasks per arm, 1-50. BILLED API calls: default is smoke test only"
@@ -61,16 +71,40 @@ jobs:
       - name: Fetch and normalize Finance-Agent tasks
         working-directory: upstream/agent-scaling
         run: bash scripts/setup_finance_agent.sh
-      - name: Run two matched published controls
+      - name: Verify Q integration is loadable
+        working-directory: upstream/agent-scaling
+        run: |
+          uv run --no-sync python - <<'PYCODE'
+          import pathlib, sys
+          sys.path.insert(0, str(pathlib.Path.cwd().parents[1]))
+          from bloodninja.adapter import register_queued_agent
+          register_queued_agent()
+          from agent_scaling.agents.registry import get_agent_cls
+          assert get_agent_cls('single-worker-queued').__name__ == 'SingleWorkerQueued'
+          print('Queue adapter registered successfully')
+          PYCODE
+      - name: Execute selected research arm(s)
         working-directory: upstream/agent-scaling
         env:
           MODEL: ${{ inputs.model }}
           N_TASKS: ${{ inputs.max_instances }}
+          SELECTED_ARM: ${{ inputs.arm }}
         run: |
           set -euo pipefail
-          for ARM in single-agent multi-agent-centralized; do
+          case "$SELECTED_ARM" in
+            single) ARMS=(single-agent);;
+            multi) ARMS=(multi-agent-centralized);;
+            queue) ARMS=(single-worker-queued);;
+            all) ARMS=(single-agent multi-agent-centralized single-worker-queued);;
+            *) echo "Invalid architecture" >&2; exit 1;;
+          esac
+          for ARM in "${ARMS[@]}"; do
             echo "Running ${ARM}, model=${MODEL}, tasks=${N_TASKS}"
-            uv run --no-sync python scripts/run_experiment.py \
+            ENTRYPOINT=(scripts/run_experiment.py)
+            if [[ "$ARM" == "single-worker-queued" ]]; then
+              ENTRYPOINT=(../../bloodninja/launch.py)
+            fi
+            uv run --no-sync python "${ENTRYPOINT[@]}" \
               "agent=${ARM}" dataset=finance-agent "llm.model=${MODEL}" \
               "max_instances=${N_TASKS}" debug=false num_workers=1 \
               llm.params.temperature=0.0 use_disk_cache=false log_langfuse=false
@@ -90,7 +124,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: finance-agent-baseline-metrics
+          name: finance-agent-experiment-metrics
           path: metrics/*.json
           if-no-files-found: warn
           retention-days: 30
