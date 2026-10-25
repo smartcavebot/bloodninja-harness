@@ -18,7 +18,9 @@ on:
           - single
           - multi
           - queue
+          - direct
           - all
+          - all4
         default: single
         required: true
       max_instances:
@@ -100,7 +102,9 @@ jobs:
             single) ARMS=(single-agent);;
             multi) ARMS=(multi-agent-centralized);;
             queue) ARMS=(single-worker-queued);;
+            direct) ARMS=(single-worker-direct);;
             all) ARMS=(single-agent multi-agent-centralized single-worker-queued);;
+            all4) ARMS=(single-agent multi-agent-centralized single-worker-queued single-worker-direct);;
             *) echo 'Unsupported arm' >&2; exit 2;;
           esac
           for ARM in "${ARMS[@]}"; do
@@ -134,7 +138,7 @@ jobs:
             (cd upstream/agent-scaling && uv run --no-sync python ../../bloodninja/export_metrics.py \
               --root exp_outputs --out ../../metrics/paired-task-metrics.csv)
           fi
-          if [[ "${{ inputs.arm }}" == "all" && -s metrics/paired-task-metrics.csv ]]; then
+          if [[ "${{ inputs.arm }}" == "all" || "${{ inputs.arm }}" == "all4" ]] && [[ -s metrics/paired-task-metrics.csv ]]; then
             python analyze.py metrics/paired-task-metrics.csv --reps 4000 > metrics/paired-bootstrap.txt || \
               echo 'Paired analysis unavailable: missing a complete S/M/Q task' > metrics/paired-bootstrap.txt
           fi
