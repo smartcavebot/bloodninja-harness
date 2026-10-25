@@ -19,7 +19,9 @@ def main() -> None:
     if not (upstream / 'scripts' / 'run_experiment.py').is_file():
         raise RuntimeError('Missing submodule; git submodule update --init --recursive')
     from bloodninja.adapter import register_queued_agent
+    from bloodninja.grading import install_strict_grading
     register_queued_agent()
+    install_strict_grading()
     # Extend the upstream Hydra configuration at runtime without modifying Git
     # tracked source. Keep every upstream parameter and only change agent.name.
     original = (upstream / 'run_conf' / 'agent' / 'multi-agent-centralized.yaml').read_text()
