@@ -1,0 +1,133 @@
+name: Kaggle GPU Qwen control experiment
+on:
+  workflow_dispatch:
+    inputs:
+      kaggle_username:
+        description: "Kaggle username (from kaggle.com/<username>)"
+        type: string
+        required: true
+      dataset:
+        type: choice
+        description: "PlanCraft needs no Tavily key; Finance-Agent requires a Kaggle Secret"
+        options:
+          - plancraft-test
+          - finance-agent
+        default: plancraft-test
+        required: true
+      arm:
+        type: choice
+        description: "Choose single for initial GPU/model smoke; all4 = 4 architectures"
+        options:
+          - single
+          - multi
+          - queue
+          - direct
+          - all
+          - all4
+        default: single
+        required: true
+      max_instances:
+        type: choice
+        description: "Tasks per selected arm; a GPU session is limited to three hours by this workflow"
+        options:
+          - '1'
+          - '3'
+          - '10'
+        default: '1'
+        required: true
+permissions:
+  contents: read
+concurrency:
+  group: kaggle-bloodninja-${{ inputs.kaggle_username }}
+  cancel-in-progress: false
+jobs:
+  kaggle:
+    name: Submit, inspect and retrieve Kaggle GPU experiment
+    runs-on: ubuntu-latest
+    timeout-minutes: 195
+    env:
+      KAGGLE_API_TOKEN: ${{ secrets.KAGGLE_API_TOKEN }}
+      KAGGLE_USER: ${{ inputs.kaggle_username }}
+      KAGGLE_DATASET: ${{ inputs.dataset }}
+      KAGGLE_ARM: ${{ inputs.arm }}
+      KAGGLE_INSTANCES: ${{ inputs.max_instances }}
+      PYTHONUNBUFFERED: "1"
+    steps:
+      - name: Fail early without Kaggle authentication
+        run: |
+          if [[ -z "$KAGGLE_API_TOKEN" ]]; then
+            echo "Missing KAGGLE_API_TOKEN GitHub Actions secret." >&2
+            echo "Generate a Kaggle API token under kaggle.com/settings/api." >&2
+            exit 2
+          fi
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install Kaggle CLI
+        run: python -m pip install --disable-pip-version-check 'kaggle>=1.8.2'
+      - name: Prepare private reproducible notebook
+        shell: bash
+        run: |
+          python kaggle/prepare.py --user "$KAGGLE_USER" \
+            --sha "$GITHUB_SHA" --dataset "$KAGGLE_DATASET" \
+            --arm "$KAGGLE_ARM" --instances "$KAGGLE_INSTANCES" \
+            --destination kaggle/submission
+          echo "Kernel code commit: $GITHUB_SHA"
+          echo "Only public model configuration goes into Kaggle code; never commit or print API tokens."
+      - name: Submit one private T4 GPU job
+        shell: bash
+        run: |
+          kaggle kernels push -p kaggle/submission --accelerator NvidiaTeslaT4 --timeout 10800
+          echo "KAGGLE_KERNEL_ID=${KAGGLE_USER,,}/bloodninja-control" >> "$GITHUB_ENV"
+      - name: Check remote status without downloading raw logs
+        shell: bash
+        run: |
+          set -euo pipefail
+          ready=0
+          for i in $(seq 1 185); do
+            status="$(kaggle kernels status "$KAGGLE_KERNEL_ID" 2>&1)" || {
+              echo "Kaggle status API failed:" >&2
+              printf '%s\n' "$status" >&2
+              exit 1
+            }
+            echo "Poll $i: $status"
+            if grep -Eiq '(^|[[:space:]])complete([[:space:]]|$)' <<<"$status"; then
+              ready=1
+              break
+            fi
+            if grep -Eiq '(^|[[:space:]])(error|failed|cancelled)([[:space:]]|$)' <<<"$status"; then
+              echo "Kaggle job failed: open your private notebook execution logs in Kaggle." >&2
+              exit 1
+            fi
+            sleep 60
+          done
+          [[ "$ready" -eq 1 ]] || { echo "Kaggle run exceeded workflow wait budget" >&2; exit 1; }
+      - name: Download sanitized task scores from Kaggle
+        shell: bash
+        run: |
+          mkdir -p kaggle-outputs
+          kaggle kernels output "$KAGGLE_KERNEL_ID" -p kaggle-outputs \
+            --file-pattern '.*(task-scores\.csv|provenance\.json)$'
+          find kaggle-outputs -type f -maxdepth 5
+          test "$(find kaggle-outputs -name task-scores.csv | wc -l)" -eq 1 || {
+            echo "INVALID: Kaggle job reported complete but produced no scored tasks" >&2
+            exit 1
+          }
+      - name: Paired statistics where all architectures were requested
+        shell: bash
+        run: |
+          csv="$(find kaggle-outputs -name task-scores.csv | head -n 1)"
+          if [[ "$KAGGLE_ARM" == "all" || "$KAGGLE_ARM" == "all4" ]]; then
+            python analyze.py "$csv" --reps 4000 > kaggle-outputs/paired-bootstrap.txt
+          fi
+      - name: Publish only sanitized experiment artifacts to workflow
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: kaggle-bloodninja-sanitized-scores
+          path: kaggle-outputs/**
+          if-no-files-found: warn
+          retention-days: 30
