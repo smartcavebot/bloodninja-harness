@@ -19,8 +19,10 @@ def main() -> None:
     if not (upstream / 'scripts' / 'run_experiment.py').is_file():
         raise RuntimeError('Missing submodule; git submodule update --init --recursive')
     from bloodninja.adapter import register_queued_agent
+    from bloodninja.direct import register_direct_agent
     from bloodninja.grading import install_strict_grading
     register_queued_agent()
+    register_direct_agent()
     install_strict_grading()
     # Extend the upstream Hydra configuration at runtime without modifying Git
     # tracked source. Keep every upstream parameter and only change agent.name.
@@ -30,6 +32,9 @@ def main() -> None:
     modified = original.replace('name: multi-agent-centralized',
                                 'name: single-worker-queued', 1)
     (upstream / 'run_conf' / 'agent' / 'single-worker-queued.yaml').write_text(modified)
+    (upstream / 'run_conf' / 'agent' / 'single-worker-direct.yaml').write_text(
+        original.replace('name: multi-agent-centralized',
+                         'name: single-worker-direct', 1))
     # Avoid changing the original benchmark entrypoint (Hydra, eval, metrics).
     sys.argv[0] = str(upstream / 'scripts' / 'run_experiment.py')
     os.chdir(upstream)
