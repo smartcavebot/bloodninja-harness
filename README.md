@@ -67,6 +67,25 @@ The direct-serialized control (`single-worker-direct`) executes the same origina
 
 The free-tier workflow offers `all4`, but defaults to one-task S smoke and requires manual triggering. Rubric grader outages invalidate a result after retries rather than counting as incorrect. Groq per-model free quotas are a practical limit.
 
+
+## Kaggle GPU execution (remote, no local GPU required)
+
+Manual workflow: **[Kaggle GPU Qwen control experiment](.github/workflows/kaggle-gpu.yml)**.
+
+This backend runs the **actual pinned upstream evaluator** and S/M/Q/E agents inside a *private Kaggle T4 x2 GPU notebook*, alongside a local OpenAI-compatible vLLM server using official **Qwen/Qwen3-8B-AWQ** weights (~6.1 GB). It uses one 16 GB T4 initially (the other is unused) and a 16K model-context ceiling; these settings are planning choices, not claims of verified model throughput or compatibility. Scratch downloads, server logs and upstream raw prompts are kept outside `/kaggle/working`; only hashed task IDs, numeric scores and provenance are saved for download. The notebook's own private Kaggle execution logs may still contain task content.
+
+**Account preparation:**
+
+1. Use a verified Kaggle account with GPU notebooks enabled and available quota. Generate a personal API token under [Kaggle settings → API](https://www.kaggle.com/settings/api).
+2. Store the token as a **GitHub Actions repository secret** named `KAGGLE_API_TOKEN` at Settings → Secrets and variables → Actions. Do not paste tokens into chat, source code, kernel metadata, or workflow inputs.
+3. Open [Actions → Kaggle GPU Qwen control experiment](https://github.com/smartcavebot/bloodninja-harness/actions/workflows/kaggle-gpu.yml) and select Run workflow. Enter your **Kaggle username**. Start with **dataset=plancraft-test, arm=single, max_instances=1** to validate provisioning and tool calling. Once that completes with a valid scored task, try `all4` on one task, then repeat on multiple tasks.
+
+Kaggle API submission, status polling and output retrieval happen in GitHub Actions; the GPU computation happens entirely on Kaggle. We never pass API keys into the committed notebook. **PlanCraft requires no Tavily credential.** Finance-Agent additionally requires `TAVILY_API_KEY` to be configured in the **Kaggle notebook's own Secrets** (Kaggle → Notebook Editor → Add-ons → Secrets). It is not copied from GitHub because Kaggle does not expose an official CLI to set notebook Secrets.
+
+GitHub Actions runs wait up to three hours per GPU experiment; larger multi-agent runs must be split into resumable batches (future work). The real Kaggle execution has **not yet been performed**, because account-specific credentials have not been connected to the submission workflow. We do not treat a green submission/CI job as a valid research outcome; verify the score artifact and provenance first.
+
+Model and architecture controls: model checkpoint pinned to `c664f5e955c33186a8b7a5cf0cbc3b220e4afdd4`; code pinned to the triggering Git commit; upstream `agent-scaling` remains a pinned git submodule. The study's original commercial-model scores are **not** reproduced by a Qwen experiment.
+
 ## GitHub Actions
 
 - **CI**: runs offline tests on push/PR; performs no billed LLM calls.
