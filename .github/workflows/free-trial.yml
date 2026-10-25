@@ -1,9 +1,5 @@
 name: Finance-Agent free-tier trial (manual)
 on:
-  push:
-    branches: [main]
-    paths:
-      - '.github/workflows/free-trial.yml'
   workflow_dispatch:
     inputs:
       model:
@@ -94,9 +90,9 @@ jobs:
       - name: Execute model and grader with SAME free Groq account
         working-directory: upstream/agent-scaling
         env:
-          MODEL: ${{ inputs.model || 'groq/openai/gpt-oss-20b' }}
-          N_TASKS: ${{ inputs.max_instances || '1' }}
-          SELECTED_ARM: ${{ inputs.arm || 'all' }}
+          MODEL: ${{ inputs.model }}
+          N_TASKS: ${{ inputs.max_instances }}
+          SELECTED_ARM: ${{ inputs.arm }}
         run: |
           set -euo pipefail
           case "$SELECTED_ARM" in
