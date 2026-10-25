@@ -19,7 +19,7 @@ Compare six architectures while preserving the published evaluator, model, promp
 | Q | One queued producer/consumer with private per-role histories | **Upstream Finance-Agent runner adapter + offline contract tests; billed API execution not yet verified** |
 | L | Queue with globally shared history (negative control) | Transport proof only |
 | B | Broker with multiple consumers (broker control) | Planned |
-| E | One direct serialized worker without broker (serialization control) | Planned |
+| E | One direct serialized worker without broker (serialization control) | **Integrated as `single-worker-direct`; deterministic role-input parity tests pass, no live provider score yet** |
 
 Primary statistic: `R=(Q-S)/(M-S)`, defined only for a positive replicated advantage `M>S` and accompanied by paired uncertainty estimates. See [PROTOCOL.md](PROTOCOL.md).
 
@@ -56,10 +56,21 @@ The manual [free-tier trial](.github/workflows/free-trial.yml) is designed for $
 
 Groq's one-task smoke run on October 25, 2026 succeeded end-to-end, but its **reported accuracy=0** included at least one upstream `FinanceAgentDataset._grade_one_criterion` call that silently converted a transient Groq/Cloudflare HTTP 520 error into an incorrect rubric criterion. Consequently that run is **invalid as a scientific accuracy observation**, despite the Actions job showing success. The free-tier workflow now uses `bloodninja/grading.py` for **all S/M/Q architectures**, retries failed grader calls up to three times, and raises after exhaustion instead of silently assigning zero. A missing task-level grading record now fails the workflow. Do not merge metrics from the pre-fix smoke run with the new trials; preserve it solely as diagnostic evidence.
 
+### Four-way causal decomposition
+
+The direct-serialized control (`single-worker-direct`) executes the same original worker code as Q with identical lead-generated instructions and one executor thread, **but without SQLite or a broker**. Thus, on matched tasks:
+
+- M versus E estimates effects of serializing concurrent logical workers, including deadline effects.
+- E versus Q estimates additional effects of durable queued transport.
+- S versus Q measures the original single-agent-to-queued gain.
+- Worker *objects* still exist per logical role in Q and E. Neither establishes equivalence to one fully mutable agent state object; a future virtualization control must explicitly test that stronger claim.
+
+The free-tier workflow offers `all4`, but defaults to one-task S smoke and requires manual triggering. Rubric grader outages invalidate a result after retries rather than counting as incorrect. Groq per-model free quotas are a practical limit.
+
 ## GitHub Actions
 
 - **CI**: runs offline tests on push/PR; performs no billed LLM calls.
-- **Finance-Agent experiment**: `Actions > Finance-Agent experiment (manual billed runs) > Run workflow`. Choose one of S, M, Q, or `all`; defaults to **single-agent on just one task**. Requires `OPENAI_API_KEY` and `TAVILY_API_KEY` GitHub Actions secrets. A full 50-task comparison consumes API credits and requires explicit selection. The workflow uploads aggregate and **paired task-level accuracy metrics**, optionally with bootstrap estimates when all three arms finish. It does not upload raw model transcripts or queue databases. Parallel runner instance count fixed at 1. All arms use the same model ID and task cutoff.
+- **Finance-Agent experiment**: `Actions > Finance-Agent experiment (manual billed runs) > Run workflow`. Choose S, M, Q, E, `all` (S/M/Q), or `all4` (S/M/Q/E); defaults to **single-agent on just one task**. Requires `OPENAI_API_KEY` and `TAVILY_API_KEY` GitHub Actions secrets. A full 50-task comparison consumes API credits and requires explicit selection. The workflow uploads aggregate and **paired task-level accuracy metrics**, optionally with bootstrap estimates when all three arms finish. It does not upload raw model transcripts or queue databases. Parallel runner instance count fixed at 1. All arms use the same model ID and task cutoff.
 
 ### What the integration changes
 
