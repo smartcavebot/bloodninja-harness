@@ -13,7 +13,8 @@ from pathlib import Path
 COLUMNS = ('task_id', 'arm', 'score', 'rubric_score', 'grading_method', 'experiment_dir')
 ARMS = {'single-agent': 'single',
         'multi-agent-centralized': 'multi',
-        'single-worker-queued': 'queue'}
+        'single-worker-queued': 'queue',
+        'single-worker-direct': 'direct'}
 
 
 def export_metrics(root: Path, out: Path) -> list[dict]:
