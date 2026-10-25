@@ -52,6 +52,10 @@ The manual [free-tier trial](.github/workflows/free-trial.yml) is designed for $
 
 **Methodological caveats:** This is a new-model validation of S/M/Q, not an exact reproduction of the paper's published-model scores. For zero charge, the free workflow explicitly overrides the pinned Finance-Agent **rubric judge** to the selected Groq model (the original template defaults to a separate Gemini judge); this changes the evaluator model, but is held constant across S/M/Q. A one-task smoke test demonstrates that the pipeline executes; it cannot establish statistical superiority. Live runs have not been verified with keys. Do not use `baseline.yml` to attempt a free run; that workflow is configured for OpenAI models and the original Gemini grader.
 
+### Failure-aware grading
+
+Groq's one-task smoke run on October 25, 2026 succeeded end-to-end, but its **reported accuracy=0** included at least one upstream `FinanceAgentDataset._grade_one_criterion` call that silently converted a transient Groq/Cloudflare HTTP 520 error into an incorrect rubric criterion. Consequently that run is **invalid as a scientific accuracy observation**, despite the Actions job showing success. The free-tier workflow now uses `bloodninja/grading.py` for **all S/M/Q architectures**, retries failed grader calls up to three times, and raises after exhaustion instead of silently assigning zero. A missing task-level grading record now fails the workflow. Do not merge metrics from the pre-fix smoke run with the new trials; preserve it solely as diagnostic evidence.
+
 ## GitHub Actions
 
 - **CI**: runs offline tests on push/PR; performs no billed LLM calls.
