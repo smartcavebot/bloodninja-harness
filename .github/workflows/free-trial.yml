@@ -6,9 +6,10 @@ on:
         description: "Groq free-plan model: eligible accounts, subject to token/rate limits"
         type: choice
         options:
+          - groq/qwen/qwen3.8-27b
           - groq/openai/gpt-oss-20b
           - groq/openai/gpt-oss-120b
-        default: groq/openai/gpt-oss-20b
+        default: groq/qwen/qwen3.8-27b
         required: true
       arm:
         description: "Choose single first; all runs S/M/Q and uses more free quota"
