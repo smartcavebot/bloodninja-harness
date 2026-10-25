@@ -1,5 +1,9 @@
 name: Finance-Agent free-tier trial (manual)
 on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/free-trial.yml'
   workflow_dispatch:
     inputs:
       model:
@@ -90,9 +94,9 @@ jobs:
       - name: Execute model and grader with SAME free Groq account
         working-directory: upstream/agent-scaling
         env:
-          MODEL: ${{ inputs.model }}
-          N_TASKS: ${{ inputs.max_instances }}
-          SELECTED_ARM: ${{ inputs.arm }}
+          MODEL: ${{ inputs.model || 'groq/openai/gpt-oss-20b' }}
+          N_TASKS: ${{ inputs.max_instances || '1' }}
+          SELECTED_ARM: ${{ inputs.arm || 'all' }}
         run: |
           set -euo pipefail
           case "$SELECTED_ARM" in
@@ -104,15 +108,20 @@ jobs:
           esac
           for ARM in "${ARMS[@]}"; do
             echo "Running $ARM on $N_TASKS task(s) with $MODEL; no paid API credentials"
-            ENTRYPOINT=(scripts/run_experiment.py)
-            if [[ "$ARM" == "single-worker-queued" ]]; then
-              ENTRYPOINT=(../../bloodninja/launch.py)
-            fi
-            uv run --no-sync python "${ENTRYPOINT[@]}" \
+            # Every arm uses the same strict rubric-grader patch. Upstream's
+            # default silently scores provider outages as rubric failures.
+            uv run --no-sync python ../../bloodninja/launch.py \
               "agent=${ARM}" dataset=finance-agent "llm.model=${MODEL}" \
               "dataset.eval_llm.model=${MODEL}" \
               "max_instances=${N_TASKS}" debug=false num_workers=1 \
               llm.params.temperature=0.0 use_disk_cache=false log_langfuse=false
+            # The upstream runner can convert a failed task to accuracy=0
+            # and still exit 0. Missing instance_save is a failed experiment.
+            COUNT=$(find "exp_outputs/finance_agent/${ARM}" -name instance_save.yaml 2>/dev/null | wc -l)
+            if [[ "${COUNT}" -ne "${N_TASKS}" ]]; then
+              echo "INVALID: ${ARM} produced ${COUNT}/${N_TASKS} graded task records" >&2
+              exit 1
+            fi
           done
       - name: Export per-task metrics only, never transcripts or queue database
         if: always()
